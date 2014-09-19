@@ -31,7 +31,7 @@ import bpy
 from bpy.props import *
 
 class FJR_DelImage(bpy.types.Operator):
-    """Delete all image in active scene"""
+    """Delete image in active scene"""
     bl_idname = "image.fjr_delimage"
     bl_label = "del image "
     
@@ -44,19 +44,48 @@ class FJR_DelImage(bpy.types.Operator):
     delfileimage_option = bpy.props.BoolProperty(
         name='delete file')     
 
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'
+    
+    
+    
     def execute(self, context):
-        delAllImgOP = self.delallimage_option
-        delImgSeqOP = self.delimageseq_option
-        delFileImgOP = self.delfileimage_option
+        #scene properties
+        delAllImgOPT = self.delallimage_option
+        delImgSeqOPT = self.delimageseq_option
+        delFileImgOPT = self.delfileimage_option
         
-        image=bpy.data.images
-        for x in image:
+        scn= context.scene
+        area = context.area
+        space = area.spaces
+        image = bpy.data.images
+        seq = scn.sequence_editor
+        sequence = seq.sequences
+        
+        
+        if delAllImgOPT==1:
+            for x in image:
+                x.user_clear()
+                image.remove(x)
+    
+            spdImg = context.space_data.image
+            spdImg.reload()
+            context.area.tag_redraw()
+        
+        x=space[0].image
+        if delAllImgOPT==0 :
             x.user_clear()
             image.remove(x)
-
-        spdImg = context.space_data.image
-        spdImg.reload()
-        context.area.tag_redraw()
+    
+            spdImg = context.space_data.image
+            spdImg.reload()
+            context.area.tag_redraw()
+        
+        #set active strip
+        seq.active_strip = seq.sequences_all[x.name]
+        if delImgSeqOPT==1 :
+            seq.remove(seq.active_strip)
 
         return{'FINISHED'}
 
@@ -88,9 +117,14 @@ class FJR_NuStBoImage(bpy.types.Operator):
         render= scn.render
         
         
-        replaceOP = self.replace_option
-        dimensionOP = self.dimension_option
-        addSeqOP = self.addsequence_option
+        #scene property
+        props = context.scene.fjr_stb_tool
+        scn_name = str(props.scene_name)
+        sht_name = str(props.shoot_name)
+        work_dir = props.work_dir
+        replaceOPT = self.replace_option
+        dimensionOPT = self.dimension_option
+        addSeqOPT = self.addsequence_option
         duration = self.seqduration
         
         #fix for blender 269
@@ -99,14 +133,14 @@ class FJR_NuStBoImage(bpy.types.Operator):
         seq = scn.sequence_editor
         sequence = seq.sequences        
         
-        x_res= render.resolution_x * render.resolution_percentage /100
-        y_res= render.resolution_y * render.resolution_percentage /100
+        x_res= render.resolution_x
+        y_res= render.resolution_y
+                
+        #use dimension
+        if dimensionOPT==1: 
+            x_res= render.resolution_x * render.resolution_percentage /100
+            y_res= render.resolution_y * render.resolution_percentage /100
         
-        #scene property
-        props = context.scene.fjr_stb_tool
-        scn_name = str(props.scene_name)
-        sht_name = str(props.shoot_name)
-        work_dir = props.work_dir
         
         #count string
         sc=len(scn_name)
@@ -166,9 +200,10 @@ class FJR_NuStBoImage(bpy.types.Operator):
         print(startframe)                                        
         
         #auto add image to sequencer
-        nu_sequence = sequence.new_image(name=image_name,filepath=file_path,channel=1,frame_start=startframe)
-        seq.active_strip = nu_sequence
-        seq.active_strip.frame_final_duration=26
+        if addSeqOPT==1:
+            nu_sequence = sequence.new_image(name=image_name,filepath=file_path,channel=1,frame_start=startframe)
+            seq.active_strip = nu_sequence
+            seq.active_strip.frame_final_duration=26
         
         bpy.ops.image.fjr_savereaload()
         
@@ -301,4 +336,3 @@ def unregister():
     
 if __name__ == "__main__":
     register()
-    

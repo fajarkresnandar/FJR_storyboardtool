@@ -15,10 +15,9 @@ bl_info = {
 
 #addnu image
 ##option replace image? if image already there.(report file exist in folder,in sequence,in image editor)
-##option use dimension percentage
 
 #delete:active image
-## del all image(0), delete squence(1), delete file(0)
+##delete file(0)
 
 #open file:
 ##auto add image strip 
@@ -29,6 +28,7 @@ bl_info = {
 
 import bpy
 from bpy.props import *
+
 
 class FJR_DelImage(bpy.types.Operator):
     """Delete image in active scene"""
@@ -63,18 +63,29 @@ class FJR_DelImage(bpy.types.Operator):
         seq = scn.sequence_editor
         sequence = seq.sequences
         
-        
+            
+        #delete image    
         if delAllImgOPT==1:
             for x in image:
+                seq.active_strip = seq.sequences_all[x.name]
+                if delImgSeqOPT==1 :
+                    sequence.remove(seq.active_strip)
+                
                 x.user_clear()
                 image.remove(x)
-    
+                
             spdImg = context.space_data.image
             spdImg.reload()
             context.area.tag_redraw()
-        
-        x=space[0].image
+            
         if delAllImgOPT==0 :
+            #delete active strip
+            x=space[0].image
+            seq.active_strip = seq.sequences_all[x.name]
+            
+            if delImgSeqOPT==1 :
+                sequence.remove(seq.active_strip)
+                
             x.user_clear()
             image.remove(x)
     
@@ -82,11 +93,6 @@ class FJR_DelImage(bpy.types.Operator):
             spdImg.reload()
             context.area.tag_redraw()
         
-        #set active strip
-        seq.active_strip = seq.sequences_all[x.name]
-        if delImgSeqOPT==1 :
-            seq.remove(seq.active_strip)
-
         return{'FINISHED'}
 
     def invoke(self, context, event):

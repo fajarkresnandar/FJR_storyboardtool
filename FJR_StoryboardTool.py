@@ -12,31 +12,86 @@ bl_info = {
     
     
 #next task:
-#open image and load as sequence strip
+
+#addnu image
+##option replace image? if image already there.(report file exist in folder,in sequence,in image editor)
+##option use dimension percentage
+
+#delete:active image
+## del all image(0), delete squence(1), delete file(0)
+
+#open file:
+##auto add image strip 
+
+#paint tool:
+##use other image as background(like clone tool)
+
 
 import bpy
+from bpy.props import *
 
-class FJR_DelAllImage(bpy.types.Operator):
+class FJR_DelImage(bpy.types.Operator):
     """Delete all image in active scene"""
-    bl_idname = "image.fjr_delallscene"
-    bl_label = "del all image "
+    bl_idname = "image.fjr_delimage"
+    bl_label = "del image "
+    
+    delallimage_option = bpy.props.BoolProperty(
+        name='delete all image') 
+
+    delimageseq_option = bpy.props.BoolProperty(
+        name='delete image sequance') 
+
+    delfileimage_option = bpy.props.BoolProperty(
+        name='delete file')     
 
     def execute(self, context):
+        delAllImgOP = self.delallimage_option
+        delImgSeqOP = self.delimageseq_option
+        delFileImgOP = self.delfileimage_option
+        
         image=bpy.data.images
         for x in image:
             x.user_clear()
+            image.remove(x)
+
+        spdImg = context.space_data.image
+        spdImg.reload()
+        context.area.tag_redraw()
+
         return{'FINISHED'}
+
+    def invoke(self, context, event):
+        theBool1 = False
+        theBool2 = False
+        theBool3 = False 
+        #global theFloat, theBool, theString, theEnum
+        
+        self.delallimage_option = theBool1
+        self.delimageseq_option = theBool2
+        self.elfileimage_option = theBool3
+        return context.window_manager.invoke_props_dialog(self)
 
 class FJR_NuStBoImage(bpy.types.Operator):
     """New image for storyboarding"""
     bl_idname = "image.fjr_nuimage"
     bl_label = "New StoryBoard Image"
-
+    
+    replace_option  = BoolProperty(name="replace image")
+    dimension_option = BoolProperty(name="use dimension")
+    addsequence_option = bpy.props.BoolProperty(name='add sequence')
+    seqduration = bpy.props.IntProperty(name='sequence duration')
+    
     def execute(self, context):
         data= bpy.data
         image= data.images
         scn= bpy.context.scene
         render= scn.render
+        
+        
+        replaceOP = self.replace_option
+        dimensionOP = self.dimension_option
+        addSeqOP = self.addsequence_option
+        duration = self.seqduration
         
         #fix for blender 269
         scn.sequence_editor_create()
@@ -44,21 +99,36 @@ class FJR_NuStBoImage(bpy.types.Operator):
         seq = scn.sequence_editor
         sequence = seq.sequences        
         
-        x_res= render.resolution_x
-        y_res= render.resolution_y
+        x_res= render.resolution_x * render.resolution_percentage /100
+        y_res= render.resolution_y * render.resolution_percentage /100
         
         #scene property
         props = context.scene.fjr_stb_tool
-        scn_name = props.scene_name
-        sht_name = props.shoot_name
+        scn_name = str(props.scene_name)
+        sht_name = str(props.shoot_name)
         work_dir = props.work_dir
+        
+        #count string
+        sc=len(scn_name)
+        sh=len(sht_name)
+        
+        #add prefix
+        if sc==1:
+            scn_name='00'+scn_name
+        if sc==2:
+            scn_name='0'+scn_name
+        
+        if sh==1:
+            sht_name='00'+sht_name
+        if sh==2:
+            sht_name='0'+sht_name
         
         image_name= "scn"+scn_name+"_"+"sh"+sht_name
         
         #check existing image name
         for g in image:
             if g.name ==image_name:
-                
+                self.report({"ERROR"}, "File %s sudah ada." % image_name)
                 return{'CANCELLED'}
 
         #create new image and save in work directory
@@ -81,6 +151,8 @@ class FJR_NuStBoImage(bpy.types.Operator):
         filter_text=False, filter_btx=False, filter_collada=False, filter_folder=True, \
         filemode=9, relative_path=True, display_type='FILE_DEFAULTDISPLAY')
         
+        image[image_name].use_fake_user=1
+
         #get sequence start position
         all_seq = seq.sequences_all
         str_1 = [a for a in all_seq
@@ -96,34 +168,54 @@ class FJR_NuStBoImage(bpy.types.Operator):
         #auto add image to sequencer
         nu_sequence = sequence.new_image(name=image_name,filepath=file_path,channel=1,frame_start=startframe)
         seq.active_strip = nu_sequence
-        seq.active_strip.frame_final_duration=48
-
+        seq.active_strip.frame_final_duration=26
+        
+        bpy.ops.image.fjr_savereaload()
+        
         return {'FINISHED'}
+
+    def invoke(self, context, event):
+        theBool1 = False
+        theBool2 = True
+        theBool3 = True
+        theInt1 = 26
+        #global theFloat, theBool, theString, theEnum
+        
+        self.replace_option = theBool1
+        self.dimension_option = theBool2
+        self.addsequence_option = theBool3
+        self.seqduration = theInt1
+        
+        return context.window_manager.invoke_props_dialog(self)
 
 class FJR_SbtSaveReload(bpy.types.Operator):
     """New image for storyboarding"""
     bl_idname = "image.fjr_savereaload"
     bl_label = "save and reload "
 
-    def execute(self, context):
-        data= bpy.data
-        image= data.images
-        scn= bpy.context.scene
-        render= scn.render        
+    def execute(self, context):       
+        screen = bpy.data.screens
+        screenitem = screen.items()
         
-        #bpy.ops.image.save_as()
+        bpy.ops.image.save()
+        bpy.ops.sequencer.refresh_all()
+        x=bpy.context.window.screen.name
         
-        area=bpy.context.window.screen.areas
-        spc =[a for a in area]
-        for x in spc :
-            if x.spaces.active.type=='IMAGE_EDITOR':
-                bpy.ops.image.save()
-#            if x.spaces.active.type=='FILE_BROWSER':      
-#                bpy.ops.file.refresh()
-            if x.spaces.active.type=='SEQUENCE_EDITOR':      
-                bpy.ops.sequencer.refresh_all()                
-#            else:
-#                return{'CANCELLED'}
+        #i don't know how to update screen(in file browser area)
+        #this way will not work if only have one screen data
+
+        h = screenitem.index((x,screen[x]))
+
+        if h==0:
+            o=h+1
+        else:
+            o=h-1
+
+        bpy.context.window.screen=screen[o]
+        bpy.context.window.screen=screen[h]
+        
+        #bpy.ops.file.refresh()
+
         return {'FINISHED'}
         
 class FJR_StoryBoardTool_UI(bpy.types.Panel):
@@ -155,7 +247,7 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         row.operator("image.fjr_savereaload")
         
         row=layout.row()
-        row.operator("image.fjr_delallscene")
+        row.operator("image.fjr_delimage")
         
         row=layout.row()
         row.label("")        
@@ -168,16 +260,30 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         row.operator("image.reload")        
         
 class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
-    scene_name = bpy.props.StringProperty(
+
+    scene_name = bpy.props.IntProperty(
         name='',
         description='scene name for new image',
-        default='001',
+        default=0,
+        min=0,
+        max=100,
+        step=1,        
         options={'SKIP_SAVE'})
-    shoot_name = bpy.props.StringProperty(
+
+    shoot_name = bpy.props.IntProperty(
         name='',
         description='shoot name for new image',
-        default='001',
-        options={'SKIP_SAVE'})        
+        default=0,
+        min=0,
+        max=100,
+        step=1,        
+        options={'SKIP_SAVE'})
+
+#(========================
+ 
+
+#========================)
+
     work_dir = bpy.props.StringProperty(
         name='',
         description='working directory for storyboarding',

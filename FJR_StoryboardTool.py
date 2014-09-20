@@ -13,21 +13,16 @@ bl_info = {
     
 #next task:
 
-#addnu image
-##option replace image? if image already there.(report file exist in folder,in sequence,in image editor)
-
-#delete:active image
-##delete file(0)
-
 #open file:
 ##auto add image strip 
 
 #paint tool:
 ##use other image as background(like clone tool)
 
-
 import bpy
 from bpy.props import *
+import os
+
 
 
 class FJR_DelImage(bpy.types.Operator):
@@ -48,56 +43,41 @@ class FJR_DelImage(bpy.types.Operator):
     def poll(self, context):
         return context.area.type == 'IMAGE_EDITOR'
     
-    
-    
     def execute(self, context):
         #scene properties
         delAllImgOPT = self.delallimage_option
         delImgSeqOPT = self.delimageseq_option
         delFileImgOPT = self.delfileimage_option
-        
-        scn= context.scene
-        area = context.area
+
+        area = bpy.context.area
         space = area.spaces
-        image = bpy.data.images
-        seq = scn.sequence_editor
-        sequence = seq.sequences
+        image = bpy.data.images            
         
-            
         #delete image    
         if delAllImgOPT==1:
             for x in image:
-                seq.active_strip = seq.sequences_all[x.name]
-                if delImgSeqOPT==1 :
-                    sequence.remove(seq.active_strip)
-                
+                delete_if(x,delImgSeqOPT,delFileImgOPT)
                 x.user_clear()
                 image.remove(x)
-                
-            spdImg = context.space_data.image
-            spdImg.reload()
-            context.area.tag_redraw()
             
         if delAllImgOPT==0 :
             #delete active strip
             x=space[0].image
-            seq.active_strip = seq.sequences_all[x.name]
+            delete_if(x,delImgSeqOPT,delFileImgOPT)
             
-            if delImgSeqOPT==1 :
-                sequence.remove(seq.active_strip)
-                
             x.user_clear()
-            image.remove(x)
-    
-            spdImg = context.space_data.image
-            spdImg.reload()
-            context.area.tag_redraw()
-        
+            image.remove(x)            
+        fjr_reload()
+        print('del image')    
+#        spdImg = context.space_data.image
+#        spdImg.reload()
+#        context.area.tag_redraw()
+            
         return{'FINISHED'}
 
     def invoke(self, context, event):
         theBool1 = False
-        theBool2 = False
+        theBool2 = True
         theBool3 = False 
         #global theFloat, theBool, theString, theEnum
         
@@ -105,6 +85,33 @@ class FJR_DelImage(bpy.types.Operator):
         self.delimageseq_option = theBool2
         self.elfileimage_option = theBool3
         return context.window_manager.invoke_props_dialog(self)
+
+def delete_if(x,delImgSeqOPT,delFileImgOPT):
+    
+    if delFileImgOPT==1:
+
+        file=bpy.path.abspath(x.filepath)
+        os.remove(file)
+    
+    if delImgSeqOPT==1 :
+        #check sequence
+        CD_sequence(x)        
+    return
+
+def CD_sequence(x):
+    #check sequence and delete
+    scn= bpy.context.scene
+    seq = scn.sequence_editor
+    sequence = seq.sequences
+
+    strip=[i for i in seq.sequences_all 
+            if i.name==x.name]    
+    if strip!=[]:                                
+        seq.active_strip = seq.sequences_all[x.name]
+        sequence.remove(seq.active_strip)
+
+    return
+
 
 class FJR_NuStBoImage(bpy.types.Operator):
     """New image for storyboarding"""
@@ -125,13 +132,15 @@ class FJR_NuStBoImage(bpy.types.Operator):
         
         #scene property
         props = context.scene.fjr_stb_tool
+        work_dir = props.work_dir
         scn_name = str(props.scene_name)
         sht_name = str(props.shoot_name)
-        work_dir = props.work_dir
+        
         replaceOPT = self.replace_option
         dimensionOPT = self.dimension_option
         addSeqOPT = self.addsequence_option
         duration = self.seqduration
+        
         
         #fix for blender 269
         scn.sequence_editor_create()
@@ -146,7 +155,6 @@ class FJR_NuStBoImage(bpy.types.Operator):
         if dimensionOPT==1: 
             x_res= render.resolution_x * render.resolution_percentage /100
             y_res= render.resolution_y * render.resolution_percentage /100
-        
         
         #count string
         sc=len(scn_name)
@@ -164,12 +172,18 @@ class FJR_NuStBoImage(bpy.types.Operator):
             sht_name='0'+sht_name
         
         image_name= "scn"+scn_name+"_"+"sh"+sht_name
+
+        if replaceOPT==1:
+            #bpy.ops.image.fjr_delimage()
+            CD_sequence(image[image_name])            
+            
         
-        #check existing image name
-        for g in image:
-            if g.name ==image_name:
-                self.report({"ERROR"}, "File %s sudah ada." % image_name)
-                return{'CANCELLED'}
+        if replaceOPT==0:
+            for g in image:
+                #check existing image name
+                if g.name ==image_name:
+                    self.report({"ERROR"}, "File %s sudah ada." % image_name)
+                    return{'CANCELLED'}
 
         #create new image and save in work directory
         bpy.ops.image.new(name=image_name, width=x_res, height=y_res, color=(1, 1, 1, 1), alpha=True, generated_type='BLANK', float=False)        
@@ -203,7 +217,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
             activestart= x.frame_start
             if activestart >= startframe:
                 startframe=activestart+x.frame_final_duration
-        print(startframe)                                        
+        #print(startframe)                                        
         
         #auto add image to sequencer
         if addSeqOPT==1:
@@ -226,7 +240,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
         self.dimension_option = theBool2
         self.addsequence_option = theBool3
         self.seqduration = theInt1
-        
+                
         return context.window_manager.invoke_props_dialog(self)
 
 class FJR_SbtSaveReload(bpy.types.Operator):
@@ -235,30 +249,35 @@ class FJR_SbtSaveReload(bpy.types.Operator):
     bl_label = "save and reload "
 
     def execute(self, context):       
-        screen = bpy.data.screens
-        screenitem = screen.items()
         
         bpy.ops.image.save()
         bpy.ops.sequencer.refresh_all()
-        x=bpy.context.window.screen.name
-        
-        #i don't know how to update screen(in file browser area)
-        #this way will not work if only have one screen data
-
-        h = screenitem.index((x,screen[x]))
-
-        if h==0:
-            o=h+1
-        else:
-            o=h-1
-
-        bpy.context.window.screen=screen[o]
-        bpy.context.window.screen=screen[h]
-        
-        #bpy.ops.file.refresh()
-
+        fjr_reload()        
         return {'FINISHED'}
-        
+
+
+def fjr_reload():        
+    #i don't know how to update screen(in file browser area)
+    #this way will not work if only have one screen data
+
+    screen = bpy.data.screens
+    screenitem = screen.items()
+    x=bpy.context.window.screen.name
+    h = screenitem.index((x,screen[x]))
+
+    if h==0:
+        o=h+1
+    else:
+        o=h-1
+
+    bpy.context.window.screen=screen[o]
+    bpy.context.window.screen=screen[h]
+    
+    #bpy.ops.file.refresh()
+    
+    return
+
+
 class FJR_StoryBoardTool_UI(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "FJR_StoryBoardTool"

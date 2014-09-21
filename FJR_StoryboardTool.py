@@ -57,16 +57,15 @@ class FJR_DelImage(bpy.types.Operator):
         if delAllImgOPT==1:
             for x in image:
                 delete_if(x,delImgSeqOPT,delFileImgOPT)
-                x.user_clear()
-                image.remove(x)
+                delete_image(x)
             
         if delAllImgOPT==0 :
             #delete active strip
             x=space[0].image
             delete_if(x,delImgSeqOPT,delFileImgOPT)
             
-            x.user_clear()
-            image.remove(x)            
+            delete_image(x)
+                        
         fjr_reload()
         print('del image')    
 #        spdImg = context.space_data.image
@@ -85,6 +84,11 @@ class FJR_DelImage(bpy.types.Operator):
         self.delimageseq_option = theBool2
         self.elfileimage_option = theBool3
         return context.window_manager.invoke_props_dialog(self)
+
+def delete_image(x):
+    image = bpy.data.images
+    x.user_clear()
+    image.remove(x)    
 
 def delete_if(x,delImgSeqOPT,delFileImgOPT):
     
@@ -175,7 +179,9 @@ class FJR_NuStBoImage(bpy.types.Operator):
 
         if replaceOPT==1:
             #bpy.ops.image.fjr_delimage()
-            CD_sequence(image[image_name])            
+            x=image[image_name]
+            CD_sequence(x)            
+            delete_image(x)
             
         
         if replaceOPT==0:

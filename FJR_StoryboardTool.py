@@ -24,6 +24,24 @@ from bpy.props import *
 import os
 
 
+class FJR_DelImage(bpy.types.Operator):
+    """Delete image in active scene"""
+    bl_idname = "image.fjr_reloadimage"
+    bl_label = "reload "
+
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'    
+
+    def execute(self, context):
+        
+        bpy.ops.image.reload()
+        bpy.ops.sequencer.refresh_all()
+        fjr_reload()
+                
+        
+        
+        return{'FINISHED'}
 
 class FJR_DelImage(bpy.types.Operator):
     """Delete image in active scene"""
@@ -323,7 +341,7 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         
         row=layout.row()
         row.operator("image.open")        
-        row.operator("image.reload")        
+        row.operator("image.fjr_reloadimage")        
         
 class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
 

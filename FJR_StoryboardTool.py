@@ -249,7 +249,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
             seq.active_strip = nu_sequence
             seq.active_strip.frame_final_duration=26
         
-        bpy.ops.image.fjr_savereaload()
+        bpy.ops.image.fjr_save_edit()
         
         return {'FINISHED'}
 
@@ -267,10 +267,10 @@ class FJR_NuStBoImage(bpy.types.Operator):
                 
         return context.window_manager.invoke_props_dialog(self)
 
-class FJR_SbtSaveReload(bpy.types.Operator):
+class FJR_SbtSaveEdit(bpy.types.Operator):
     """New image for storyboarding"""
-    bl_idname = "image.fjr_savereaload"
-    bl_label = "save and reload "
+    bl_idname = "image.fjr_save_edit"
+    bl_label = "save edit"
 
     def execute(self, context):       
         
@@ -328,7 +328,7 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         
         row=layout.row()
         row.operator("image.fjr_nuimage",text="new image")
-        row.operator("image.fjr_savereaload")
+        row.operator("image.fjr_save_edit")
         
         row=layout.row()
         row.operator("image.fjr_delimage")

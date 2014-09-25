@@ -9,22 +9,69 @@ bl_info = {
     "wiki_url": "",
     "tracker_url": "",
     "category": "Paint"}
-    
-    
-#next task:
-
-#open file:
-##auto add image strip 
-
-#paint tool:
-##use other image as background(like clone tool)
 
 import bpy
 from bpy.props import *
 import os
 
+#reuse function=====================start
 
-class FJR_DelImage(bpy.types.Operator):
+def delete_image(x):
+    image = bpy.data.images
+    x.user_clear()
+    image.remove(x)    
+
+def delete_if(x,delImgSeqOPT,delFileImgOPT):
+    
+    if delFileImgOPT==1:
+
+        file=bpy.path.abspath(x.filepath)
+        os.remove(file)
+    
+    if delImgSeqOPT==1 :
+        #check sequence
+        CD_sequence(x)        
+    return
+
+def CD_sequence(x):
+    #check sequence and delete
+    scn= bpy.context.scene
+    seq = scn.sequence_editor
+    sequence = seq.sequences
+
+    strip=[i for i in seq.sequences_all 
+            if i.name==x.name]    
+    if strip!=[]:                                
+        seq.active_strip = seq.sequences_all[x.name]
+        sequence.remove(seq.active_strip)
+
+    return
+
+def fjr_reload():        
+    #i don't know how to update screen(in file browser area)
+    #this way will not work if only have one screen data
+
+    screen = bpy.data.screens
+    screenitem = screen.items()
+    x=bpy.context.window.screen.name
+    h = screenitem.index((x,screen[x]))
+
+    if h==0:
+        o=h+1
+    else:
+        o=h-1
+
+    bpy.context.window.screen=screen[o]
+    bpy.context.window.screen=screen[h]
+    
+    #bpy.ops.file.refresh()
+    
+    return
+
+#reuse function=====================end
+
+#operator=====================start
+class FJR_ReloadImage(bpy.types.Operator):
     """Delete image in active scene"""
     bl_idname = "image.fjr_reloadimage"
     bl_label = "reload "
@@ -38,8 +85,6 @@ class FJR_DelImage(bpy.types.Operator):
         bpy.ops.image.reload()
         bpy.ops.sequencer.refresh_all()
         fjr_reload()
-                
-        
         
         return{'FINISHED'}
 
@@ -103,36 +148,6 @@ class FJR_DelImage(bpy.types.Operator):
         self.elfileimage_option = theBool3
         return context.window_manager.invoke_props_dialog(self)
 
-def delete_image(x):
-    image = bpy.data.images
-    x.user_clear()
-    image.remove(x)    
-
-def delete_if(x,delImgSeqOPT,delFileImgOPT):
-    
-    if delFileImgOPT==1:
-
-        file=bpy.path.abspath(x.filepath)
-        os.remove(file)
-    
-    if delImgSeqOPT==1 :
-        #check sequence
-        CD_sequence(x)        
-    return
-
-def CD_sequence(x):
-    #check sequence and delete
-    scn= bpy.context.scene
-    seq = scn.sequence_editor
-    sequence = seq.sequences
-
-    strip=[i for i in seq.sequences_all 
-            if i.name==x.name]    
-    if strip!=[]:                                
-        seq.active_strip = seq.sequences_all[x.name]
-        sequence.remove(seq.active_strip)
-
-    return
 
 
 class FJR_NuStBoImage(bpy.types.Operator):
@@ -267,7 +282,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
                 
         return context.window_manager.invoke_props_dialog(self)
 
-class FJR_SbtSaveEdit(bpy.types.Operator):
+class FJR_StbSaveEdit(bpy.types.Operator):
     """New image for storyboarding"""
     bl_idname = "image.fjr_save_edit"
     bl_label = "save edit"
@@ -280,27 +295,254 @@ class FJR_SbtSaveEdit(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def fjr_reload():        
-    #i don't know how to update screen(in file browser area)
-    #this way will not work if only have one screen data
+#nafigation=========================start
+class FJR_Image_Next(bpy.types.Operator):
+    """Next image in image editor """
+    bl_idname = "image.fjr_nextimage"
+    bl_label = "next"
 
-    screen = bpy.data.screens
-    screenitem = screen.items()
-    x=bpy.context.window.screen.name
-    h = screenitem.index((x,screen[x]))
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'    
 
-    if h==0:
-        o=h+1
-    else:
-        o=h-1
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        
+        area = context.area
+        space = area.spaces[0].image
+        
+        id_actvImg=image.find(space.name)
+        allId_list=len(image)-1
+        next_id=nextImg_id(id_actvImg,allId_list)
+                    
+        area.spaces[0].image= image[next_id]
+        
+#        bpy.ops.image.reload()
+#        bpy.ops.sequencer.refresh_all()
+#        fjr_reload()
+        
+        return{'FINISHED'}
 
-    bpy.context.window.screen=screen[o]
-    bpy.context.window.screen=screen[h]
+class FJR_Image_Prev(bpy.types.Operator):
+    """Previous image in image editor """
+    bl_idname = "image.fjr_previmage"
+    bl_label = "pref"
+
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'    
+
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        
+        area = context.area
+        space = area.spaces[0].image
+        
+        id_actvImg=image.find(space.name)
+        allId_list=len(image)-1
+        prev_id=prevImg_id(id_actvImg,allId_list)
+        
+        area.spaces[0].image= image[prev_id]
+        
+#        bpy.ops.image.reload()
+#        bpy.ops.sequencer.refresh_all()
+#        fjr_reload()
+        
+        return{'FINISHED'}
+
+class FJR_Image_Frist(bpy.types.Operator):
+    """First image in image editor """
+    bl_idname = "image.fjr_firstimage"
+    bl_label = "first_image"
+
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'    
+
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        area = context.area
+        space = area.spaces[0].image
+        area.spaces[0].image= image[0]
+        
+#        bpy.ops.image.reload()
+#        bpy.ops.sequencer.refresh_all()
+#        fjr_reload()
+        
+        return{'FINISHED'}
+
+class FJR_Image_Frist(bpy.types.Operator):
+    """Last image in image editor """
+    bl_idname = "image.fjr_lastimage"
+    bl_label = "last_image"
+
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'    
+
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        area = context.area
+        space = area.spaces[0].image
+
+        allId_list=0
+        for i in image:
+            allId_list=allId_list+1
+        allId_list=allId_list-1
+
+        area.spaces[0].image= image[allId_list]
+        
+#        bpy.ops.image.reload()
+#        bpy.ops.sequencer.refresh_all()
+#        fjr_reload()
+        
+        return{'FINISHED'}
+
+#nafigation=========================end
+
+def FJR_move(next_id):
+    """move image to next_id"""
+
+    data=bpy.data
+    image= data.images
+    area = bpy.context.area
+    space = area.spaces[0].image
+
+    #get active image path
+    filepath_current=bpy.path.abspath(space.filepath)
+    filename_current=bpy.path.basename(filepath_current)
+    path_current=filepath_current.replace(filename_current,"")
     
-    #bpy.ops.file.refresh()
+    #get next image path
+    filepath_next=bpy.path.abspath(image[next_id].filepath)
+    filename_next=bpy.path.basename(filepath_next)
+    path_next=filepath_next.replace(filename_next,"")
+    
+    #rename current & next imagepath
+    nu_filepath_current = path_current+'pre_'+filename_next        
+    nu_filepath_next = path_current+'pre_'+filename_current
+    
+    os.rename(filepath_current,nu_filepath_current)
+    os.rename(filepath_next,nu_filepath_next)
+    
+    nuCrnt_img_file= bpy.path.basename(nu_filepath_current)
+    nuNext_img_file= bpy.path.basename(nu_filepath_next)
+    
+    nupath_crnt = nu_filepath_current.replace(nuCrnt_img_file,"")
+    nupath_nxt = nu_filepath_next.replace(nuNext_img_file,"")
+    
+    #rename it again
+    
+    Crnt_img_file = nuCrnt_img_file.replace('pre_','')
+    Next_img_file = nuNext_img_file.replace('pre_','')
+    
+    filepath_current = nupath_crnt + Crnt_img_file 
+    filepath_next = nupath_nxt + Next_img_file
+    
+    os.rename(nu_filepath_current , filepath_current)
+    os.rename(nu_filepath_next , filepath_next)
+
+#    bpy.ops.image.reload()
+#    bpy.ops.sequencer.refresh_all()
+#    fjr_reload()
     
     return
+    
+class FJR_Move_Next(bpy.types.Operator):
+    """Move image to the next """
+    bl_idname = "image.fjr_movenext"
+    bl_label = "move_next"
 
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        area = context.area
+        space = area.spaces[0].image
+        
+        #id active image and next image
+        allId_list=len(image)-1
+        id_actvImg=image.find(space.name)
+        next_id=nextImg_id(id_actvImg,allId_list)
+        
+        FJR_move(next_id)
+        
+        bpy.ops.image.fjr_nextimage()
+        
+        bpy.ops.image.reload()
+        bpy.ops.sequencer.refresh_all()
+        fjr_reload()
+                
+        return{'FINISHED'}
+
+class FJR_Move_Prev(bpy.types.Operator):
+    """Move image to the previous """
+    bl_idname = "image.fjr_moveprev"
+    bl_label = "move_prev"
+
+    @classmethod
+    def poll(self, context):
+        return context.area.type == 'IMAGE_EDITOR'
+    def execute(self, context):
+        data=bpy.data
+        image= data.images
+        area = context.area
+        space = area.spaces[0].image
+        
+        #id active image and next image
+        allId_list=len(image)-1
+        id_actvImg=image.find(space.name)
+        next_id=prevImg_id(id_actvImg,allId_list)
+        
+        FJR_move(next_id)
+                
+        bpy.ops.image.fjr_previmage()
+        
+        bpy.ops.image.reload()
+        bpy.ops.sequencer.refresh_all()
+        fjr_reload()
+                        
+        return{'FINISHED'}
+    
+def nextImg_id(id_actvImg,allId_list):
+    """return next image id from current active image in image editor"""
+    next_id = id_actvImg+1
+    if next_id > allId_list:
+        next_id = 0
+    return next_id
+
+def prevImg_id(id_actvImg,allId_list):
+    """return previous image id from current active image in image editor"""
+    
+    prev_id = id_actvImg-1
+    if prev_id==-1:
+        prev_id = allId_list    
+    
+    return prev_id
+#operator=====================end
+
+class FJR_StoryBoardTool_File_UI(bpy.types.Panel):
+    """Creates a Panel in file browser"""
+    bl_label = "FJR_StoryBoardTool_Rearrange"
+    bl_idname = "Rearrange_Image"
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'UI'
+
+    def draw(self, context):
+        scene = context.scene
+        
+        layout = self.layout
+        
+        row=layout.row(align=True)
+        row.alignment = 'CENTER'
+        row.operator("image.fjr_moveprev",icon='TRIA_LEFT',text='')
+        row.operator("image.fjr_movenext",icon='TRIA_RIGHT',text='')
 
 class FJR_StoryBoardTool_UI(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
@@ -331,17 +573,25 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         row.operator("image.fjr_save_edit")
         
         row=layout.row()
-        row.operator("image.fjr_delimage")
+        row.operator("image.fjr_delimage",icon='CANCEL')
         
         row=layout.row()
         row.label("")        
         
         row=layout.row()
-        row.operator("image.external_edit")        
+        row.operator("image.external_edit",text='edit image externally')        
         
         row=layout.row()
-        row.operator("image.open")        
-        row.operator("image.fjr_reloadimage")        
+        row.operator("image.open",icon='FILE_FOLDER')        
+        row.operator("image.fjr_reloadimage",icon='FILE_REFRESH')        
+        
+#        row=layout.row(align=True)
+#        row.alignment = 'CENTER'
+#        row.operator("image.fjr_firstimage",icon='REW',text='')
+#        row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
+#        row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
+#        row.operator("image.fjr_lastimage",icon='FF',text='')
+                
         
 class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
 
@@ -363,11 +613,6 @@ class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
         step=1,        
         options={'SKIP_SAVE'})
 
-#(========================
- 
-
-#========================)
-
     work_dir = bpy.props.StringProperty(
         name='',
         description='working directory for storyboarding',
@@ -375,12 +620,25 @@ class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
         default='//storyboard/',
         options={'SKIP_SAVE'})        
                 
+
+def imgedit_header_navigate(self, context):
+    layout=self.layout
+    row=layout.row(align=True)
+    row.label(text='  ')
+    row.operator("image.fjr_firstimage",icon='REW',text='')
+    row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
+    row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
+    row.operator("image.fjr_lastimage",icon='FF',text='')    
+
 def register():
     bpy.utils.register_module(__name__)
     bpy.types.Scene.fjr_stb_tool = bpy.props.PointerProperty(type = FJR_StoryboardToolProps)
+    bpy.types.IMAGE_HT_header.append(imgedit_header_navigate)
         
 def unregister():
     bpy.utils.unregister_module(__name__)
+    bpy.types.IMAGE_HT_header.remove(imgedit_header_navigate)
+
     del bpy.types.Scene.fjr_stb_tool
     
 if __name__ == "__main__":

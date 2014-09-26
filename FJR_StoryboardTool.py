@@ -374,7 +374,7 @@ class FJR_Image_Frist(bpy.types.Operator):
         
         return{'FINISHED'}
 
-class FJR_Image_Frist(bpy.types.Operator):
+class FJR_Image_Last(bpy.types.Operator):
     """Last image in image editor """
     bl_idname = "image.fjr_lastimage"
     bl_label = "last_image"

@@ -446,7 +446,7 @@ def FJR_move(next_id):
     os.rename(nu_filepath_current , filepath_current)
     os.rename(nu_filepath_next , filepath_next)
 
-#    bpy.ops.image.reload()
+    bpy.ops.image.reload()
 #    bpy.ops.sequencer.refresh_all()
 #    fjr_reload()
     

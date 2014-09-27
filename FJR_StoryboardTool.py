@@ -72,7 +72,7 @@ def fjr_reload():
 
 #operator=====================start
 class FJR_ReloadImage(bpy.types.Operator):
-    """Delete image in active scene"""
+    """Reload image in active image editor"""
     bl_idname = "image.fjr_reloadimage"
     bl_label = "reload "
 
@@ -148,10 +148,8 @@ class FJR_DelImage(bpy.types.Operator):
         self.elfileimage_option = theBool3
         return context.window_manager.invoke_props_dialog(self)
 
-
-
 class FJR_NuStBoImage(bpy.types.Operator):
-    """New image for storyboarding"""
+    """Create new storyboard image"""
     bl_idname = "image.fjr_nuimage"
     bl_label = "New StoryBoard Image"
     
@@ -166,18 +164,18 @@ class FJR_NuStBoImage(bpy.types.Operator):
         scn= bpy.context.scene
         render= scn.render
         
-        
         #scene property
         props = context.scene.fjr_stb_tool
         work_dir = props.work_dir
         scn_name = str(props.scene_name)
         sht_name = str(props.shoot_name)
+        prvix_name = props.previx
+        prvix_opt = props.opt_previx
         
         replaceOPT = self.replace_option
         dimensionOPT = self.dimension_option
         addSeqOPT = self.addsequence_option
         duration = self.seqduration
-        
         
         #fix for blender 269
         scn.sequence_editor_create()
@@ -209,6 +207,8 @@ class FJR_NuStBoImage(bpy.types.Operator):
             sht_name='0'+sht_name
         
         image_name= "scn"+scn_name+"_"+"sh"+sht_name
+        if prvix_opt==1:
+            image_name= "scn"+scn_name+"_"+"sh"+sht_name+"_"+prvix_name
 
         if replaceOPT==1:
             #bpy.ops.image.fjr_delimage()
@@ -216,7 +216,6 @@ class FJR_NuStBoImage(bpy.types.Operator):
             CD_sequence(x)            
             delete_image(x)
             
-        
         if replaceOPT==0:
             for g in image:
                 #check existing image name
@@ -283,7 +282,8 @@ class FJR_NuStBoImage(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
 class FJR_StbSaveEdit(bpy.types.Operator):
-    """New image for storyboarding"""
+    """Save image in image in image editor, reload image in file editor and sequence editor """
+
     bl_idname = "image.fjr_save_edit"
     bl_label = "save edit"
 
@@ -293,7 +293,6 @@ class FJR_StbSaveEdit(bpy.types.Operator):
         bpy.ops.sequencer.refresh_all()
         fjr_reload()        
         return {'FINISHED'}
-
 
 #nafigation=========================start
 class FJR_Image_Next(bpy.types.Operator):
@@ -553,48 +552,62 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
 
     def draw(self, context):
         scene = context.scene
-
+        props = scene.fjr_stb_tool
+        use_previx = props.opt_previx
+        
         layout = self.layout
         
-        row=layout.row()
-        row.label(text="scene dir")
-        row.prop(context.scene.fjr_stb_tool, 'work_dir')
+#==============TEST==============start
+#        row=layout.row()
+#        col=row.column()
+#        col.operator("image.fjr_reloadimage")
+#        col.operator("image.fjr_reloadimage")
+#        col=row.column()
+#        col.scale_y= 2.0
+#        col.operator("image.fjr_reloadimage",text="ganti")
+#        #"image.fjr_reloadimage"
+
+#==============TEST==============end
+
+        box=layout.box()
         
-        row=layout.row()
-        row.label(text="scene")
-        row .prop(context.scene.fjr_stb_tool, 'scene_name')
+        row=box.row()
+        row.prop(props, 'work_dir')
         
-        row=layout.row()
-        row.label(text="shoot")
-        row.prop(context.scene.fjr_stb_tool, 'shoot_name')        
+        row=box.row()
+        col=row.column()
+        col .prop(props, 'scene_name',text="scene ")
+        col.prop(props, 'shoot_name',text="shoot ")
         
-        row=layout.row()
-        row.operator("image.fjr_nuimage",text="new image")
-        row.operator("image.fjr_save_edit")
+        col=row.column()
+        col.scale_y=2
+        col.operator("image.fjr_nuimage",text="new image")
         
+        row=box.row()
+        row.prop(props, 'opt_previx',text="use previx")
+        if use_previx==1:
+            row.prop(props,'previx')
+              
         row=layout.row()
         row.operator("image.fjr_delimage",icon='CANCEL')
+        row.operator("image.fjr_save_edit")
         
-        row=layout.row()
-        row.label("")        
-        
-        row=layout.row()
-        row.operator("image.external_edit",text='edit image externally')        
+        row=layout.row(align=True)
+        row.operator("image.fjr_reloadimage",icon='FILE_REFRESH')        
+        row.operator("image.external_edit",text='edit external')        
         
         row=layout.row()
         row.operator("image.open",icon='FILE_FOLDER')        
-        row.operator("image.fjr_reloadimage",icon='FILE_REFRESH')        
         
-#        row=layout.row(align=True)
-#        row.alignment = 'CENTER'
-#        row.operator("image.fjr_firstimage",icon='REW',text='')
-#        row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
-#        row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
-#        row.operator("image.fjr_lastimage",icon='FF',text='')
-                
+        row=layout.row(align=True)
+        row.alignment = 'CENTER'
+        row.operator("image.fjr_firstimage",icon='REW',text='')
+        row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
+        row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
+        row.operator("image.fjr_lastimage",icon='FF',text='')
         
-class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
 
+class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
     scene_name = bpy.props.IntProperty(
         name='',
         description='scene name for new image',
@@ -615,29 +628,40 @@ class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
 
     work_dir = bpy.props.StringProperty(
         name='',
-        description='working directory for storyboarding',
+        description='Directory/name to save new storyboard image',
         subtype='DIR_PATH',
         default='//storyboard/',
         options={'SKIP_SAVE'})        
                 
+    opt_previx = bpy.props.BoolProperty(
+        name='',
+        default=0,
+        description='option use previx',
+        options={'SKIP_SAVE'})        
 
-def imgedit_header_navigate(self, context):
-    layout=self.layout
-    row=layout.row(align=True)
-    row.label(text='  ')
-    row.operator("image.fjr_firstimage",icon='REW',text='')
-    row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
-    row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
-    row.operator("image.fjr_lastimage",icon='FF',text='')    
+    previx = bpy.props.StringProperty(
+        name='',
+        description='prefix',
+        default="",
+        options={'SKIP_SAVE'})
+
+#def imgedit_header_navigate(self, context):
+#    layout=self.layout
+#    row=layout.row(align=True)
+#    row.label(text='  ')
+#    row.operator("image.fjr_firstimage",icon='REW',text='')
+#    row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
+#    row.operator("image.fjr_nextimage",icon='TRIA_RIGHT',text='')
+#    row.operator("image.fjr_lastimage",icon='FF',text='')    
 
 def register():
     bpy.utils.register_module(__name__)
     bpy.types.Scene.fjr_stb_tool = bpy.props.PointerProperty(type = FJR_StoryboardToolProps)
-    bpy.types.IMAGE_HT_header.append(imgedit_header_navigate)
+#    bpy.types.IMAGE_HT_header.append(imgedit_header_navigate)
         
 def unregister():
     bpy.utils.unregister_module(__name__)
-    bpy.types.IMAGE_HT_header.remove(imgedit_header_navigate)
+#    bpy.types.IMAGE_HT_header.remove(imgedit_header_navigate)
 
     del bpy.types.Scene.fjr_stb_tool
     

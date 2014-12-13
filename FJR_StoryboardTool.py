@@ -47,7 +47,7 @@ def CD_sequence(x):
 
     return
 
-def fjr_reload():        
+def fjr_reload():
     #i don't know how to update screen(in file browser area)
     #this way will not work if only have one screen data
 
@@ -64,15 +64,13 @@ def fjr_reload():
     bpy.context.window.screen=screen[o]
     bpy.context.window.screen=screen[h]
     
-    #bpy.ops.file.refresh()
-    
     return
 
 #reuse function=====================end
 
 #operator=====================start
 class FJR_ReloadImage(bpy.types.Operator):
-    """Reload image in active image editor"""
+    """Reload image in active image editor, sequence editor & file browser"""
     bl_idname = "image.fjr_reloadimage"
     bl_label = "reload "
 
@@ -81,7 +79,14 @@ class FJR_ReloadImage(bpy.types.Operator):
         return context.area.type == 'IMAGE_EDITOR'    
 
     def execute(self, context):
+        image = bpy.data.images
         
+        #refresh only storyboard
+        stb=[i for i in image
+                if i.name.startswith('scn')]
+        for i in stb:
+            i.reload()
+            
         bpy.ops.image.reload()
         bpy.ops.sequencer.refresh_all()
         fjr_reload()
@@ -234,7 +239,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
         
 #        bpy.context.space_data.active.image.file_format
 #        bpy.context.window.screen.areas[2].spaces.active.image.file_format
-#        bpy.context.window.screen.areas[1].spaces.active.   
+#        bpy.context.window.screen.areas[1].spaces.active.
         
         #auto save image
         bpy.ops.image.save_as(save_as_render=False, copy=False, filepath=file_path,\
@@ -261,7 +266,7 @@ class FJR_NuStBoImage(bpy.types.Operator):
         if addSeqOPT==1:
             nu_sequence = sequence.new_image(name=image_name,filepath=file_path,channel=1,frame_start=startframe)
             seq.active_strip = nu_sequence
-            seq.active_strip.frame_final_duration=26
+            seq.active_strip.frame_final_duration=duration
         
         bpy.ops.image.fjr_save_edit()
         
@@ -295,6 +300,32 @@ class FJR_StbSaveEdit(bpy.types.Operator):
         return {'FINISHED'}
 
 #nafigation=========================start
+
+def find_id(list, name):
+    """return id from list"""
+    id=0
+    for l in list:
+        if l != name:
+            id=id+1
+        else :
+            break
+    return id
+
+def nextImg_id(next,list,id_crnt):
+    """return next image id from image list"""
+    
+    allId_list = len(list)-1
+    if next=="next":
+        id_next = id_crnt+1
+        if id_next > allId_list:
+            id_next = 0
+    if next=="prev":
+        id_next = id_crnt-1
+        if id_next==-1:
+            id_next = allId_list
+            
+    return id_next
+    
 class FJR_Image_Next(bpy.types.Operator):
     """Next image in image editor """
     bl_idname = "image.fjr_nextimage"
@@ -305,21 +336,28 @@ class FJR_Image_Next(bpy.types.Operator):
         return context.area.type == 'IMAGE_EDITOR'    
 
     def execute(self, context):
-        data=bpy.data
-        image= data.images
+        data = bpy.data
+        image = data.images
+        
+        prop = bpy.context.scene.fjr_stb_tool
+        use_all = prop.opt_nav_all_img
         
         area = context.area
         space = area.spaces[0].image
         
-        id_actvImg=image.find(space.name)
-        allId_list=len(image)-1
-        next_id=nextImg_id(id_actvImg,allId_list)
-                    
-        area.spaces[0].image= image[next_id]
-        
-#        bpy.ops.image.reload()
-#        bpy.ops.sequencer.refresh_all()
-#        fjr_reload()
+        if use_all==1:
+            id_actvImg=image.find(space.name)
+            id_next = nextImg_id("next",image,id_actvImg)
+            
+            area.spaces[0].image= image[id_next]
+            
+        else :
+            img_list=[m.name for m in image
+                        if m.name.startswith("scn")]
+            id_actvImg = find_id(img_list, space.name)
+            id_next = nextImg_id("next",img_list, id_actvImg)
+            
+            area.spaces[0].image= image[img_list[id_next]]
         
         return{'FINISHED'}
 
@@ -335,19 +373,25 @@ class FJR_Image_Prev(bpy.types.Operator):
     def execute(self, context):
         data=bpy.data
         image= data.images
+
+        prop = bpy.context.scene.fjr_stb_tool
+        use_all = prop.opt_nav_all_img
         
         area = context.area
         space = area.spaces[0].image
         
-        id_actvImg=image.find(space.name)
-        allId_list=len(image)-1
-        prev_id=prevImg_id(id_actvImg,allId_list)
-        
-        area.spaces[0].image= image[prev_id]
-        
-#        bpy.ops.image.reload()
-#        bpy.ops.sequencer.refresh_all()
-#        fjr_reload()
+        if use_all==1:
+            id_actvImg=image.find(space.name)            
+            id_next=nextImg_id("prev",image,id_actvImg)
+            area.spaces[0].image= image[id_next]
+            
+        else:
+            img_list=[m.name for m in image
+                        if m.name.startswith("scn")]
+            id_actvImg = find_id(img_list, space.name)
+            id_next = nextImg_id("prev",img_list, id_actvImg)
+            
+            area.spaces[0].image= image[img_list[id_next]]
         
         return{'FINISHED'}
 
@@ -365,12 +409,17 @@ class FJR_Image_Frist(bpy.types.Operator):
         image= data.images
         area = context.area
         space = area.spaces[0].image
-        area.spaces[0].image= image[0]
+
+        prop = bpy.context.scene.fjr_stb_tool
+        use_all = prop.opt_nav_all_img        
         
-#        bpy.ops.image.reload()
-#        bpy.ops.sequencer.refresh_all()
-#        fjr_reload()
-        
+        if use_all==1:
+            area.spaces[0].image= image[0]
+        else:
+            img_list=[m.name for m in image
+                        if m.name.startswith("scn")]
+            area.spaces[0].image= image[img_list[0]]
+            
         return{'FINISHED'}
 
 class FJR_Image_Last(bpy.types.Operator):
@@ -387,67 +436,100 @@ class FJR_Image_Last(bpy.types.Operator):
         image= data.images
         area = context.area
         space = area.spaces[0].image
-
-        allId_list=0
-        for i in image:
-            allId_list=allId_list+1
-        allId_list=allId_list-1
-
-        area.spaces[0].image= image[allId_list]
         
-#        bpy.ops.image.reload()
-#        bpy.ops.sequencer.refresh_all()
-#        fjr_reload()
+        prop = bpy.context.scene.fjr_stb_tool
+        use_all = prop.opt_nav_all_img          
+
+        if use_all==1:
+            allId_list = len (image)-1
+            area.spaces[0].image= image[allId_list]
+        else:            
+            img_list=[m.name for m in image
+                        if m.name.startswith("scn")]
+            allId_list = len (img_list)-1
+            area.spaces[0].image= image[img_list[allId_list]]
         
         return{'FINISHED'}
 
 #nafigation=========================end
 
-def FJR_move(next_id):
-    """move image to next_id"""
+def FJR_move(id_crnt, id_next, list_allid_stb, list_id_chng, id_last_chng, direction):
+    """move image to id_next"""
 
-    data=bpy.data
-    image= data.images
+    data = bpy.data
+    image = data.images
     area = bpy.context.area
     space = area.spaces[0].image
-
-    #get active image path
-    filepath_current=bpy.path.abspath(space.filepath)
-    filename_current=bpy.path.basename(filepath_current)
-    path_current=filepath_current.replace(filename_current,"")
     
-    #get next image path
-    filepath_next=bpy.path.abspath(image[next_id].filepath)
-    filename_next=bpy.path.basename(filepath_next)
-    path_next=filepath_next.replace(filename_next,"")
+    #add more image to the change_list
+    if direction == 'right':
+        if id_last_chng < list_allid_stb[len(list_allid_stb)-1]:
+            list_id_chng.extend([id_next])
+            id_last_chng = id_next
+            id_next=list_id_chng[0]
+    if direction == 'left':
+        if id_last_chng > list_allid_stb[0] :
+            list_id_chng.extend([id_next])
+            list_id_chng=sorted(list_id_chng)
+            id_last_chng = id_next
+            id_next= list_id_chng[len(list_id_chng)-1]
     
-    #rename current & next imagepath
-    nu_filepath_current = path_current+'pre_'+filename_next        
-    nu_filepath_next = path_current+'pre_'+filename_current
+    for i in list_id_chng:
+        next=i+1
+        if direction == 'left':
+            next = i-1
+            
+        if i != id_last_chng:
+            #get image path for i
+            filepath_crnt = bpy.path.abspath(image[i].filepath)
+            filename_crnt = bpy.path.basename(filepath_crnt)
+            path_crnt = filepath_crnt.replace(filename_crnt,"")
+            
+            #get next image path
+            filepath_next=bpy.path.abspath(image[next].filepath)
+            filename_next=bpy.path.basename(filepath_next)
+            path_next=filepath_next.replace(filename_next,"")
+            
+            #rename imagepath
+            nu_filepath_crnt = path_crnt+'pre_'+filename_next        
+            os.rename(filepath_crnt, nu_filepath_crnt)
+            
+            #nuCrnt_img_file = bpy.path.basename(nu_filepath_crnt)
+            #nupath_crnt = nu_filepath_current.replace(nuCrnt_img_file,"")
+            
+        if i == id_last_chng:
+            #get image path for i
+            filepath_crnt = bpy.path.abspath(image[i].filepath)
+            filename_crnt = bpy.path.basename(filepath_crnt)
+            path_crnt = filepath_crnt.replace(filename_crnt,"")
+            
+            #get next image path
+            filepath_next = bpy.path.abspath(image[id_next].filepath)
+            filename_next = bpy.path.basename(filepath_next)
+            path_next = filepath_next.replace(filename_next,"")
+            
+            #rename imagepath
+            nu_filepath_crnt = path_crnt+'pre_'+filename_next
+            os.rename(filepath_crnt, nu_filepath_crnt)
+            
+            #nuCrnt_img_file = bpy.path.basename(nu_filepath_crnt)
+            #nupath_crnt = nu_filepath_current.replace(nuCrnt_img_file,"")
     
-    os.rename(filepath_current,nu_filepath_current)
-    os.rename(filepath_next,nu_filepath_next)
+    #rename it again (delete frefix 'pre')
+    for i in list_id_chng:
+        #get image path for i
+        
+        filepath_i = bpy.path.abspath(image[i].filepath)
+        filename_i =bpy.path.basename(filepath_i)
+        
+        path_i = filepath_i.replace(filename_i,"")
+        
+        filename_pre = 'pre_'+ filename_i
+        filepath_pre = path_i + filename_pre
+       
+        os.rename(filepath_pre , filepath_i)
     
-    nuCrnt_img_file= bpy.path.basename(nu_filepath_current)
-    nuNext_img_file= bpy.path.basename(nu_filepath_next)
-    
-    nupath_crnt = nu_filepath_current.replace(nuCrnt_img_file,"")
-    nupath_nxt = nu_filepath_next.replace(nuNext_img_file,"")
-    
-    #rename it again
-    
-    Crnt_img_file = nuCrnt_img_file.replace('pre_','')
-    Next_img_file = nuNext_img_file.replace('pre_','')
-    
-    filepath_current = nupath_crnt + Crnt_img_file 
-    filepath_next = nupath_nxt + Next_img_file
-    
-    os.rename(nu_filepath_current , filepath_current)
-    os.rename(nu_filepath_next , filepath_next)
-
-    bpy.ops.image.reload()
-#    bpy.ops.sequencer.refresh_all()
-#    fjr_reload()
+    bpy.ops.image.fjr_reloadimage()
     
     return
     
@@ -458,26 +540,64 @@ class FJR_Move_Next(bpy.types.Operator):
 
     @classmethod
     def poll(self, context):
-        return context.area.type == 'IMAGE_EDITOR'
+        return context.area.type == 'IMAGE_EDITOR' 
+    
     def execute(self, context):
+        
+        direction='right'
         data=bpy.data
         image= data.images
         area = context.area
         space = area.spaces[0].image
         
+        props = context.scene.fjr_stb_tool
+        incld_right = props.opt_include_right
+        incld_left = props.opt_include_left
+        
+        #return cenceled if current image not start with "scn"
+        if not space.name.startswith("scn"):
+            return {'CANCELLED'}
+
         #id active image and next image
-        allId_list=len(image)-1
-        id_actvImg=image.find(space.name)
-        next_id=nextImg_id(id_actvImg,allId_list)
-        
-        FJR_move(next_id)
-        
-        bpy.ops.image.fjr_nextimage()
-        
-        bpy.ops.image.reload()
-        bpy.ops.sequencer.refresh_all()
-        fjr_reload()
+        #sort id of stb image (in image list)
+        list_allid_stb=[image.find(i.name) for i in image
+                            if i.name.startswith('scn')]
+        id_last_stb = list_allid_stb[len(list_allid_stb)-1]
+
+#        len_allId =len(list_allid_stb)
+        id_crnt = image.find(space.name)
+
+        #create id list for files want tobe change
+        crnt_list=[id_crnt] #current file
+        r_chng_list=[] #file @right
+        l_chng_list=[] #file @left
+        if incld_right ==1 :
+            for i in list_allid_stb:
+                if i > id_crnt:
+                    r_chng_list.extend([i])
                 
+        if incld_left ==1 :
+            for i in list_allid_stb:
+                if i < id_crnt:
+                    l_chng_list.extend([i])
+        
+        #marge id list
+        list_id_chng = sorted(crnt_list + r_chng_list + l_chng_list)
+        id_last_chng = list_id_chng[len(list_id_chng)-1]
+        
+        #define next id/ turn point for last id
+        if id_last_chng < id_last_stb:
+            id_next = id_crnt+1 
+        if id_last_chng == id_last_stb:
+            id_next = list_id_chng[0]
+        if len(list_id_chng)==1 and id_crnt == id_last_stb :
+            id_next = list_allid_stb[0]
+            list_id_chng = list_allid_stb
+        
+        FJR_move(id_crnt, id_next, list_allid_stb, list_id_chng, id_last_chng,direction)
+        
+#        bpy.ops.image.fjr_nextimage()
+
         return{'FINISHED'}
 
 class FJR_Move_Prev(bpy.types.Operator):
@@ -489,41 +609,61 @@ class FJR_Move_Prev(bpy.types.Operator):
     def poll(self, context):
         return context.area.type == 'IMAGE_EDITOR'
     def execute(self, context):
+        direction='left'
         data=bpy.data
         image= data.images
         area = context.area
         space = area.spaces[0].image
         
-        #id active image and next image
-        allId_list=len(image)-1
-        id_actvImg=image.find(space.name)
-        next_id=prevImg_id(id_actvImg,allId_list)
+        props = context.scene.fjr_stb_tool
+        incld_right = props.opt_include_right
+        incld_left = props.opt_include_left
         
-        FJR_move(next_id)
+        #return cenceled if current image not start with "scn"
+        if not space.name.startswith("scn"):
+            return {'CANCELLED'}
+        
+        #sort id of stb image (in image list)
+        list_allid_stb=[image.find(i.name) for i in image
+                            if i.name.startswith('scn')]
+        id_last_stb = list_allid_stb[0]        
+        
+        #len_allId =len(list_allid_stb)
+        id_crnt = image.find(space.name)
+        
+        #create id list for files want tobe change
+        crnt_list=[id_crnt]
+        r_chng_list=[]
+        l_chng_list=[]
+        if incld_right ==1 :
+            for i in list_allid_stb:
+                if i > id_crnt:
+                    r_chng_list.extend([i])
                 
-        bpy.ops.image.fjr_previmage()
+        if incld_left ==1 :
+            for i in list_allid_stb:
+                if i < id_crnt:
+                    l_chng_list.extend([i])
         
-        bpy.ops.image.reload()
-        bpy.ops.sequencer.refresh_all()
-        fjr_reload()
+        #marge id list
+        list_id_chng= sorted(crnt_list+ r_chng_list + l_chng_list)
+        id_last_chng = list_id_chng[0]
+        
+        #define next id/ turn point for last id
+        if id_last_chng == id_last_stb:
+            id_next = list_id_chng[len(list_id_chng)-1]
+        if id_last_chng > id_last_stb:
+            id_next = id_crnt-1 
+        if len(list_id_chng)==1 and id_crnt == id_last_stb :
+            id_next = list_allid_stb[len(list_allid_stb)-1]
+            list_id_chng = list_allid_stb    
+       
+        FJR_move(id_crnt, id_next, list_allid_stb, list_id_chng, id_last_chng,direction)
+
+        #bpy.ops.image.fjr_previmage()        
                         
         return{'FINISHED'}
     
-def nextImg_id(id_actvImg,allId_list):
-    """return next image id from current active image in image editor"""
-    next_id = id_actvImg+1
-    if next_id > allId_list:
-        next_id = 0
-    return next_id
-
-def prevImg_id(id_actvImg,allId_list):
-    """return previous image id from current active image in image editor"""
-    
-    prev_id = id_actvImg-1
-    if prev_id==-1:
-        prev_id = allId_list    
-    
-    return prev_id
 #operator=====================end
 
 class FJR_StoryBoardTool_File_UI(bpy.types.Panel):
@@ -535,13 +675,15 @@ class FJR_StoryBoardTool_File_UI(bpy.types.Panel):
 
     def draw(self, context):
         scene = context.scene
-        
+        props = scene.fjr_stb_tool
         layout = self.layout
         
         row=layout.row(align=True)
         row.alignment = 'CENTER'
+        row.prop(props, 'opt_include_left',text='')
         row.operator("image.fjr_moveprev",icon='TRIA_LEFT',text='')
         row.operator("image.fjr_movenext",icon='TRIA_RIGHT',text='')
+        row.prop(props, 'opt_include_right',text='')
 
 class FJR_StoryBoardTool_UI(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
@@ -556,18 +698,6 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         use_previx = props.opt_previx
         
         layout = self.layout
-        
-#==============TEST==============start
-#        row=layout.row()
-#        col=row.column()
-#        col.operator("image.fjr_reloadimage")
-#        col.operator("image.fjr_reloadimage")
-#        col=row.column()
-#        col.scale_y= 2.0
-#        col.operator("image.fjr_reloadimage",text="ganti")
-#        #"image.fjr_reloadimage"
-
-#==============TEST==============end
 
         box=layout.box()
         
@@ -596,10 +726,15 @@ class FJR_StoryBoardTool_UI(bpy.types.Panel):
         row.operator("image.fjr_reloadimage",icon='FILE_REFRESH')        
         row.operator("image.external_edit",text='edit external')        
         
-        row=layout.row()
-        row.operator("image.open",icon='FILE_FOLDER')        
+#        row=layout.row()
+#        row.operator("image.open",icon='FILE_FOLDER')        
         
-        row=layout.row(align=True)
+        split = layout.split(percentage= 0.5)
+        row=split.row(align=True)
+        #row=layout.row(align=True)
+        row.prop(props, 'opt_nav_all_img',text='use all')
+        
+        row=split.row(align=True)
         row.alignment = 'CENTER'
         row.operator("image.fjr_firstimage",icon='REW',text='')
         row.operator("image.fjr_previmage",icon='TRIA_LEFT',text='')        
@@ -644,6 +779,24 @@ class FJR_StoryboardToolProps(bpy.types.PropertyGroup):
         description='prefix',
         default="",
         options={'SKIP_SAVE'})
+
+    opt_include_right = bpy.props.BoolProperty(
+        name='',
+        default=0,
+        description='option include all right image when move image',
+        options={'SKIP_SAVE'})        
+
+    opt_include_left = bpy.props.BoolProperty(
+        name='',
+        default=0,
+        description='option include all left image when move image',
+        options={'SKIP_SAVE'})
+
+    opt_nav_all_img = bpy.props.BoolProperty(
+        name='',
+        default=0,
+        description='option include all image, not only storyboard image',
+        options={'SKIP_SAVE'})         
 
 #def imgedit_header_navigate(self, context):
 #    layout=self.layout
